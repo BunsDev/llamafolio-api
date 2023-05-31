@@ -1,7 +1,7 @@
 import '@lib/providers'
 
 import type { BaseContext } from '@lib/adapter'
-import { providers } from '@lib/providers'
+import { batchCallers } from '@lib/multicall'
 import type { Abi } from 'abitype'
 import type { DecodeFunctionResultParameters, DecodeFunctionResultReturnType } from 'viem'
 
@@ -11,16 +11,13 @@ export async function call<TAbi extends Abi[number] | readonly unknown[]>(option
   abi: DecodeFunctionResultParameters<TAbi[]>['abi'][number]
   params?: DecodeFunctionResultParameters<TAbi[]>['args']
 }): Promise<DecodeFunctionResultReturnType<TAbi[]>> {
-  const args = options.params == null ? [] : Array.isArray(options.params) ? options.params : [options.params]
-
-  // @ts-ignore
-  const output = await providers[options.ctx.chain].readContract({
-    address: options.target,
-    abi: [options.abi],
+  const result = (await batchCallers[options.ctx.chain].call({
+    ctx: options.ctx,
     // @ts-ignore
-    functionName: options.abi.name,
-    args,
-  })
+    calls: [{ target: options.target, params: options.params }],
+    // @ts-ignore
+    abi: options.abi,
+  })) as any[]
 
-  return output as any
+  return result[0].output
 }
