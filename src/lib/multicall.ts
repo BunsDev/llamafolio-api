@@ -78,15 +78,15 @@ class BatchCaller {
             const result = []
 
             for (const call of inflightRequest.request.calls) {
-              if (!call) {
-                result.push({ input: call, success: false, output: null })
-              } else {
+              if (call && isAddress(call?.target || '')) {
                 const response = multicallRes[callIdx++]
                 result.push({
                   input: call,
                   success: response.status === 'success',
                   output: response.result,
                 })
+              } else {
+                result.push({ input: call, success: false, output: null })
               }
             }
 
