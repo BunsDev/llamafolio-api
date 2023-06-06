@@ -1,7 +1,7 @@
 import '@lib/providers'
 
 import type { BaseContext } from '@lib/adapter'
-import { batchCallers } from '@lib/multicall'
+import { batchCallers } from '@lib/providers/batch-call'
 import type { Abi } from 'abitype'
 import type { DecodeFunctionResultParameters, DecodeFunctionResultReturnType } from 'viem'
 
@@ -18,6 +18,12 @@ export async function call<TAbi extends Abi[number] | readonly unknown[]>(option
     // @ts-ignore
     abi: options.abi,
   })) as any[]
+
+  // throw if multicall response is unsuccessful as we don't return "output" in single calls
+  if (!result[0].success) {
+    // @ts-ignore
+    throw new Error(`Call ${options.abi.name} failed`, result[0].output)
+  }
 
   return result[0].output
 }
