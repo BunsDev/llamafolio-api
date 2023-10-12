@@ -3,6 +3,8 @@ import { abi as erc20Abi } from '@lib/erc20'
 import type { Call } from '@lib/multicall'
 import { multicall } from '@lib/multicall'
 
+import type { ProviderBalancesParams } from './interface'
+
 const abi = {
   uni_token0: {
     inputs: [],
@@ -40,8 +42,6 @@ const abi = {
     type: 'function',
   },
 } as const
-
-import type { ProviderBalancesParams } from './interface'
 
 export const uniswap3Provider = async (ctx: BaseContext, pools: Contract[]): Promise<Contract[]> => {
   const res: Contract[] = []

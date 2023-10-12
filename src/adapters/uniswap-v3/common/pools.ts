@@ -204,7 +204,7 @@ export async function getTokenIdsBalances(
       const pool = poolsRes[idx].output
       const positionRes = positionsRes[idx]
       // Uniswap rewarder address doesnt need to be display on llamafolio 'Claim Rewards/Uniswap-LP.org'
-      if (!pool || pool === '0x6e5db687c2f089fb68232B08B3b669659C7c836C' || !positionRes.success) {
+      if (!pool || pool.toLowerCase() === '0x6e5db687c2f089fb68232b08b3b669659c7c836c' || !positionRes.success) {
         return null
       }
 
@@ -301,6 +301,7 @@ export async function getTokenIdsBalances(
 }
 
 // Note: https://uniswap.org/blog/uniswap-v3-math-primer
+// Note: https://blog.uniswap.org/uniswap-v3-math-primer-2
 // Note: https://ethereum.stackexchange.com/questions/139809/how-to-get-a-virtual-and-real-reserves-from-uniswap-v3-pair
 // Note: https://ethereum.stackexchange.com/questions/101955/trying-to-make-sense-of-uniswap-v3-fees-feegrowthinside0lastx128-feegrowthglob
 
@@ -308,29 +309,40 @@ const Q128 = 2n ** 128n
 const Q256 = 2n ** 256n
 const Q96 = 2n ** 96n
 
+const MIN_TICK = -887272
+const MAX_TICK = 887272
+
 export function getTickAtSqrtRatio(sqrtPriceX96: bigint) {
   return Math.floor(Math.log(Number((sqrtPriceX96 / Q96) ** 2n)) / Math.log(1.0001))
 }
 
-export function getUnderlyingAmounts(liquidity: bigint, sqrtPriceX96: bigint, tickLow: number, tickHigh: number) {
-  const sqrtRatioA = Math.sqrt(1.0001 ** tickLow)
-  const sqrtRatioB = Math.sqrt(1.0001 ** tickHigh)
+export function getUnderlyingAmounts(liquidity: bigint, sqrtPriceX96: bigint, tickLower: number, tickUpper: number) {
+  const sqrtRatioA = Math.sqrt(1.0001 ** tickLower)
+  const sqrtRatioB = Math.sqrt(1.0001 ** tickUpper)
 
   const currentTick = getTickAtSqrtRatio(sqrtPriceX96)
   const sqrtPrice = Number(sqrtPriceX96 / Q96)
 
-  let amount0 = 0
-  let amount1 = 0
-  if (currentTick <= tickLow) {
-    amount0 = Math.floor(Number(liquidity) * ((sqrtRatioB - sqrtRatioA) / (sqrtRatioA * sqrtRatioB)))
-  } else if (currentTick > tickHigh) {
-    amount1 = Math.floor(Number(liquidity) * (sqrtRatioB - sqrtRatioA))
-  } else if (currentTick >= tickLow && currentTick < tickHigh) {
-    amount0 = Math.floor(Number(liquidity) * ((sqrtRatioB - sqrtPrice) / (sqrtPrice * sqrtRatioB)))
-    amount1 = Math.floor(Number(liquidity) * (sqrtPrice - sqrtRatioA))
+  // Position in range:
+  if (currentTick >= tickLower && currentTick < tickUpper) {
+    const amount0 = Math.floor(Number(liquidity) * ((sqrtRatioB - sqrtPrice) / (sqrtPrice * sqrtRatioB)))
+    const amount1 = Math.floor(Number(liquidity) * (sqrtPrice - sqrtRatioA))
+    return [BigInt(amount0), BigInt(amount1)]
   }
 
-  return [BigInt(amount0), BigInt(amount1)]
+  // Position out of range: Lower bound
+  if (currentTick >= MIN_TICK && currentTick <= tickLower) {
+    const amount0 = Math.floor(Number(liquidity) * ((sqrtRatioB - sqrtRatioA) / (sqrtRatioA * sqrtRatioB)))
+    return [BigInt(amount0), 0n]
+  }
+
+  // Position out of range: Upper bound
+  if (currentTick <= MAX_TICK && currentTick >= tickUpper) {
+    const amount1 = Math.floor(Number(liquidity) * (sqrtRatioB - sqrtRatioA))
+    return [0n, BigInt(amount1)]
+  }
+
+  return [0n, 0n]
 }
 
 function subIn256(x: bigint, y: bigint) {
