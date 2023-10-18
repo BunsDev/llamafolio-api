@@ -214,6 +214,23 @@ export function toStorage(balances: Balance[]) {
   return adaptersBalancesStorable
 }
 
+export async function selectLatestBalancesUpdate(client: ClickHouseClient, address: string) {
+  const queryRes = await client.query({
+    query: `
+      SELECT max("timestamp") AS "timestamp" FROM ${environment.NS_LF}.adapters_balances WHERE from_address = {address: String}
+    `,
+    query_params: {
+      address: address.toLowerCase(),
+    },
+  })
+
+  const res = (await queryRes.json()) as {
+    data: { timestamp: string }[]
+  }
+
+  return res.data[0] ? unixFromDateTime(res.data[0].timestamp) : undefined
+}
+
 export async function selectLatestBalancesSnapshotByFromAddress(client: ClickHouseClient, fromAddress: string) {
   const queryRes = await client.query({
     query: `

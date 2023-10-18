@@ -109,6 +109,15 @@ functions:
     timeout: 29
     memorySize: 512
 
+  getBalancesV1:
+    handler: src/handlers/getBalancesV1.handler
+    description: Get address balances
+    events:
+      - httpApi:
+          method: get
+          path: /v1/balances/{address}
+    timeout: 29
+
   getBalancesTokens:
     handler: src/handlers/getBalancesTokens.handler
     description: Get address erc20 balances
@@ -268,6 +277,15 @@ functions:
   revalidateAdapterContracts:
     handler: src/handlers/revalidateAdapters.revalidateAdapterContracts
     description: Revalidate adapter contracts
+
+  updateBalances:
+    handler: src/handlers/updateBalancesV1.handler
+    description: Update address balances
+    events:
+      - httpApi:
+          method: post
+          path: /v1/balances/{address}
+    timeout: 29
 
   updateGovernanceProposals:
     handler: src/handlers/updateGovernanceProposals.handler
