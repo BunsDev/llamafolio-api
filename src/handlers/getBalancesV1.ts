@@ -1,9 +1,8 @@
 import { type LatestProtocolBalances, selectLatestProtocolsBalancesByFromAddress } from '@db/balances'
 import { client } from '@db/clickhouse'
 import { badRequest, serverError, success } from '@handlers/response'
-import { areBalancesStale, BALANCE_UPDATE_THRESHOLD_SEC } from '@lib/balance'
+import { areBalancesStale } from '@lib/balance'
 import { isHex } from '@lib/contract'
-import { unixFromDate } from '@lib/fmt'
 import type { APIGatewayProxyHandler } from 'aws-lambda'
 
 type Status = 'stale' | 'success'
@@ -11,7 +10,6 @@ type Status = 'stale' | 'success'
 interface BalancesResponse {
   status: Status
   updatedAt?: number
-  nextUpdateAt: number
   protocols: LatestProtocolBalances[]
 }
 
@@ -34,7 +32,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const balancesResponse: BalancesResponse = {
       status,
       updatedAt,
-      nextUpdateAt: updatedAt ? updatedAt + BALANCE_UPDATE_THRESHOLD_SEC : unixFromDate(new Date()),
       protocols: protocolsBalances,
     }
 

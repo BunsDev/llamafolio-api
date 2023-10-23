@@ -1,20 +1,14 @@
 import { adapterById } from '@adapters/index'
 import type { ClickHouseClient } from '@clickhouse/client'
-import { formatBalance, insertBalances, selectLatestBalancesUpdate } from '@db/balances'
+import { formatBalance, insertBalances } from '@db/balances'
 import { client } from '@db/clickhouse'
 import { getContractsInteractions, groupContracts } from '@db/contracts'
 import { badRequest, serverError, success } from '@handlers/response'
 import type { Balance, BalancesContext } from '@lib/adapter'
 import { groupBy, groupBy2 } from '@lib/array'
-import {
-  areBalancesStale,
-  BALANCE_UPDATE_THRESHOLD_SEC,
-  fmtBalanceBreakdown,
-  resolveHealthFactor,
-  sanitizeBalances,
-  sanitizePricedBalances,
-} from '@lib/balance'
+import { fmtBalanceBreakdown, resolveHealthFactor, sanitizeBalances, sanitizePricedBalances } from '@lib/balance'
 import { type Chain, chains } from '@lib/chains'
+import { unixFromDate } from '@lib/fmt'
 import { getPricedBalances } from '@lib/price'
 import type { APIGatewayProxyHandler } from 'aws-lambda'
 import { isHex } from 'viem'
@@ -154,7 +148,7 @@ export async function updateBalances(client: ClickHouseClient, address: `0x${str
 
   await insertBalances(client, dbBalances)
 
-  return { updatedAt: Math.floor(now.getTime() / 1000) }
+  return { updatedAt: unixFromDate(new Date()) }
 }
 
 type Status = 'stale' | 'success'
@@ -162,7 +156,6 @@ type Status = 'stale' | 'success'
 interface UpdateBalancesResponse {
   status: Status
   updatedAt?: number
-  nextUpdateAt: number
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -177,30 +170,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const updatedAt = await selectLatestBalancesUpdate(client, address)
+    const { updatedAt } = await updateBalances(client, address)
 
-    // update stale or missing balances
-    if (updatedAt === undefined || areBalancesStale(updatedAt)) {
-      const { updatedAt } = await updateBalances(client, address)
-
-      const _updatedAt = updatedAt || Math.floor(Date.now() / 1000)
-
-      const balancesResponse: UpdateBalancesResponse = {
-        status: 'success',
-        updatedAt: _updatedAt,
-        nextUpdateAt: updatedAt + BALANCE_UPDATE_THRESHOLD_SEC,
-      }
-
-      return success(balancesResponse)
-    }
-
-    const response: UpdateBalancesResponse = {
+    const balancesResponse: UpdateBalancesResponse = {
       status: 'success',
       updatedAt,
-      nextUpdateAt: updatedAt + BALANCE_UPDATE_THRESHOLD_SEC,
     }
 
-    return success(response)
+    return success(balancesResponse)
   } catch (error) {
     console.error('Failed to update balances', { error, address })
     return serverError('Failed to update balances', { error, address })
